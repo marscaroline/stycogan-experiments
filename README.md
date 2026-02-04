@@ -26,8 +26,9 @@ This repository focuses on **experiment reproducibility**, not on hosting large 
 These artifacts are stored externally (e.g., Google Drive) and referenced in configuration files.
 
 ## Environment
-- Platform: Google Colab
+- Platform: Google Colab Pro
 - GPU: NVIDIA L4
+- RAM 24 GB
 - Framework: PyTorch, StyleGAN2-ADA
 
 ## License
