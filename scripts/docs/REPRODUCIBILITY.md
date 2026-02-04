@@ -16,7 +16,8 @@ The code assumes that `legacy.py` from StyleGAN2-ADA is importable. If required,
 
 ```bash
 export PYTHONPATH=/path/to/stylegan2-ada-pytorch:$PYTHONPATH
-Checkpoints
+
+## Checkpoints
 
 Two types of generator checkpoints are used:
 
@@ -26,26 +27,23 @@ StycoGAN checkpoint: a generator trained with temporal consistency regularizatio
 
 Checkpoint files are provided externally and are not included in this repository.
 
-Experimental Phases
-Phase A: Model Training (Summary)
+## Experimental Phases
+
+### Phase A: Model Training (Summary)
 
 Phase A refers to the training or fine-tuning of generator models. Training scripts are provided in the scripts/ directory. Due to computational cost, training is not expected to be reproduced in full for verification of Phase B results.
 
-Phase B: Sequence Generation
+### Phase B: Sequence Generation
+
 
 Phase B evaluates temporal consistency by generating a sequence of frames from a fixed identity latent code.
 
 Reproducibility in Phase B is ensured by:
+- fixing the random seed
+- fixing the identity latent code
+- using the same number of frames \(T\)
+- using identical truncation and noise settings for both baseline and StycoGAN
 
-fixing the random seed
-
-fixing the identity latent code
-
-using the same number of frames 
-𝑇
-T
-
-using identical truncation and noise settings for both baseline and StycoGAN
 
 The complete procedure for Phase B is described in docs/SEQUENCE_GENERATION.md.
 
@@ -63,17 +61,13 @@ Observed differences between baseline and StycoGAN outputs therefore reflect dif
 
 Recorded Metadata
 
-Each experimental run automatically saves a meta.json file containing:
+Each experimental run automatically saves a `meta.json` file containing:
+- random seed
+- number of frames
+- truncation value
+- noise mode
+- generator checkpoint identifier
 
-random seed
-
-number of frames
-
-truncation value
-
-noise mode
-
-generator checkpoint identifier
 
 This metadata allows exact reconstruction of experimental conditions.
 
