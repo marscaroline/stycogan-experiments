@@ -9,10 +9,8 @@ The objective of Phase B is to evaluate temporal consistency under a fixed ident
 - **Baseline generator**: operates in a frame-independent manner and may exhibit temporal flickering.
 - **StycoGAN**: integrates temporal regularization and is expected to generate perceptually stable sequences across time.
 
-In all Phase B experiments, the identity latent is fixed:
-\[
-z_t = z \quad \forall t
-\]
+In all Phase B experiments, the identity latent is fixed: \( z_t = z \) for all \( t \).
+
 
 ## Scripts
 
@@ -57,26 +55,19 @@ outputs/phaseB/<run_name>/
 │   ├── strip.png
 │   └── meta.json
 └── figure_baseline_vs_stycogan.png
-strip.png contains all 
-𝑇
-T frames arranged in temporal order and is directly usable as a figure.
+`strip.png` contains all \(T\) frames arranged in temporal order and is directly usable as a figure.
+
 
 figure_baseline_vs_stycogan.png stacks baseline and StycoGAN results for direct visual comparison.
 
 Reproducibility
 
-Each sequence generation run saves a meta.json file containing:
+Each sequence generation run saves a `meta.json` file containing:
+- random seed
+- number of frames \(T\)
+- truncation value
+- noise mode
+- generator checkpoint used
 
-random seed
-
-number of frames 
-𝑇
-T
-
-truncation value
-
-noise mode
-
-generator checkpoint used
 
 Using the same configuration guarantees that differences between baseline and StycoGAN outputs reflect temporal modeling effects rather than identity variation.
