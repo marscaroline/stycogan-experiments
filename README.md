@@ -28,7 +28,7 @@ These artifacts are stored externally (e.g., Google Drive) and referenced in con
 ## Environment
 - Platform: Google Colab Pro
 - GPU: NVIDIA L4
-- RAM 24 GB
+- RAM 16 GB
 - Framework: PyTorch, StyleGAN2-ADA
 
 ## License
