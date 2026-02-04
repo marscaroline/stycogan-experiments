@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================
-# Phase B: Sequence Generation (Xt)
+# Phase B: Sequence Generation (Xt) 
 # - Fixed identity latent (z fixed)
 # - Generate T frames (default T=8)
 # - Compare Baseline vs StycoGAN using the SAME seed
