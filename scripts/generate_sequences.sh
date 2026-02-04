@@ -1,63 +1,134 @@
 #!/usr/bin/env bash
-# Generate sequences for baseline vs StycoGAN using StyleGAN2-ADA generate.py
-# Output: a folder of frames per seed range (for temporal comparison)
+set -euo pipefail
 
-set -e
+# ============================================================
+# Phase B: Sequence Generation (Xt)
+# - Fixed identity latent (z fixed)
+# - Generate T frames (default T=8)
+# - Compare Baseline vs StycoGAN using the SAME seed
+#
+# Outputs:
+#   outputs/phaseB/<run_name>/
+#     ├── baseline/strip.png, grid.png, frames/
+#     ├── stycogan/strip.png, grid.png, frames/
+#     └── figure_baseline_vs_stycogan.png (optional)
+# ============================================================
 
-# === PATHS (Colab) ===
-OUT_ROOT=/content/drive/MyDrive/experiments/outputs
+# ---- Required ----
+BASELINE_PKL="${BASELINE_PKL:-}"
+STYCOGAN_PKL="${STYCOGAN_PKL:-}"
 
-# Baseline snapshot (StyleGAN)
-BASE_PKL=/content/drive/MyDrive/experiments/styco_runs_fixed/00000-celeba_hq_256-stylegan2-kimg20-batch16-noaug/network-snapshot-000020.pkl
+# ---- Optional (defaults) ----
+OUTROOT="${OUTROOT:-outputs/phaseB}"
+RUN_NAME="${RUN_NAME:-seed42_T8_fixedz}"
+T="${T:-8}"
+SEED="${SEED:-42}"
+TRUNC="${TRUNC:-1.0}"
 
-# StycoGAN snapshot (replace with your actual fine-tuned snapshot path)
-STYCO_PKL=/content/drive/MyDrive/experiments/styco_runs_fixed/REPLACE_WITH_STYCOGAN_SNAPSHOT.pkl
+# For Phase B visual comparison:
+# - fixed z + noise_mode=random often reveals baseline flicker more clearly.
+NOISE_MODE="${NOISE_MODE:-random}"       # random | const | none
+Z_MODE="${Z_MODE:-fixed}"               # fixed | random_walk | lerp
+GRID_COLS="${GRID_COLS:-8}"
+PAD="${PAD:-8}"
 
-# Repo folder
-STYLEGAN_DIR=/content/stylegan2-ada-pytorch
+# Optional: create combined figure (requires PIL)
+MAKE_COMBINED="${MAKE_COMBINED:-1}"     # 1=yes, 0=no
 
-# === SEQUENCE SETTINGS ===
-SEEDS_START=0
-SEEDS_END=100        # inclusive range style like 0-100
-TRUNC=1
-RES=256
-N_FRAMES=8           # temporal window you want to visualize (T)
+usage() {
+  cat <<EOF
+Usage:
+  BASELINE_PKL=/path/baseline.pkl STYCOGAN_PKL=/path/stycogan.pkl \\
+  bash scripts/generate_sequences.sh
 
-echo "OUT_ROOT   : ${OUT_ROOT}"
-echo "BASE_PKL   : ${BASE_PKL}"
-echo "STYCO_PKL  : ${STYCO_PKL}"
-echo "Seeds      : ${SEEDS_START}-${SEEDS_END}"
-echo "Frames (T) : ${N_FRAMES}"
+Optional env vars:
+  OUTROOT=outputs/phaseB
+  RUN_NAME=seed42_T8_fixedz
+  T=8
+  SEED=42
+  TRUNC=1.0
+  NOISE_MODE=random        (random|const|none)
+  Z_MODE=fixed             (fixed|random_walk|lerp)
+  GRID_COLS=8
+  PAD=8
+  MAKE_COMBINED=1          (1|0)
+EOF
+}
 
-mkdir -p "${OUT_ROOT}/stylegan_sequences"
-mkdir -p "${OUT_ROOT}/stycogan_sequences"
+if [[ -z "$BASELINE_PKL" || -z "$STYCOGAN_PKL" ]]; then
+  echo "ERROR: BASELINE_PKL and STYCOGAN_PKL must be set."
+  usage
+  exit 1
+fi
 
-cd "${STYLEGAN_DIR}"
+OUTDIR="${OUTROOT}/${RUN_NAME}"
+BASE_OUT="${OUTDIR}/baseline"
+STY_OUT="${OUTDIR}/stycogan"
 
-# --- Baseline sequences ---
-echo "[1/2] Generating BASELINE sequences..."
-for seed in $(seq ${SEEDS_START} ${SEEDS_END}); do
-  outdir="${OUT_ROOT}/stylegan_sequences/seed_${seed}"
-  mkdir -p "${outdir}"
+mkdir -p "$OUTDIR"
 
-  # Generate N_FRAMES images for the same seed by varying class of "frame index"
-  # Here we encode "frame index" into the random seed deterministically: seed*1000 + t
-  for t in $(seq 0 $((N_FRAMES-1))); do
-    python generate.py --outdir="${outdir}" --trunc="${TRUNC}" --seeds=$((seed*1000 + t)) --network="${BASE_PKL}"
-  done
-done
+echo "============================================================"
+echo "[Phase B] Sequence Generation (Xt)"
+echo "OUTDIR     : $OUTDIR"
+echo "T / SEED   : $T / $SEED"
+echo "Z_MODE     : $Z_MODE"
+echo "NOISE_MODE : $NOISE_MODE"
+echo "TRUNC      : $TRUNC"
+echo "============================================================"
 
-# --- StycoGAN sequences ---
-echo "[2/2] Generating STYCOGAN sequences..."
-for seed in $(seq ${SEEDS_START} ${SEEDS_END}); do
-  outdir="${OUT_ROOT}/stycogan_sequences/seed_${seed}"
-  mkdir -p "${outdir}"
+echo "[1/2] Baseline..."
+python scripts/generate_xt_sequence.py \
+  --network "$BASELINE_PKL" \
+  --outdir "$BASE_OUT" \
+  --T "$T" --seed "$SEED" \
+  --z_mode "$Z_MODE" \
+  --noise_mode "$NOISE_MODE" \
+  --trunc "$TRUNC" \
+  --grid_cols "$GRID_COLS" \
+  --pad "$PAD" \
+  --label "baseline"
 
-  for t in $(seq 0 $((N_FRAMES-1))); do
-    python generate.py --outdir="${outdir}" --trunc="${TRUNC}" --seeds=$((seed*1000 + t)) --network="${STYCO_PKL}"
-  done
-done
+echo "[2/2] StycoGAN..."
+python scripts/generate_xt_sequence.py \
+  --network "$STYCOGAN_PKL" \
+  --outdir "$STY_OUT" \
+  --T "$T" --seed "$SEED" \
+  --z_mode "$Z_MODE" \
+  --noise_mode "$NOISE_MODE" \
+  --trunc "$TRUNC" \
+  --grid_cols "$GRID_COLS" \
+  --pad "$PAD" \
+  --label "stycogan"
 
-echo "Done. Outputs saved under:"
-echo " - ${OUT_ROOT}/stylegan_sequences/"
-echo " - ${OUT_ROOT}/stycogan_sequences/"
+if [[ "$MAKE_COMBINED" == "1" ]]; then
+  echo "[3/3] Combined figure..."
+  python - <<'PY'
+from pathlib import Path
+from PIL import Image
+import os
+
+outdir = Path(os.environ["OUTDIR"])
+b = Image.open(outdir / "baseline" / "strip.png").convert("RGB")
+s = Image.open(outdir / "stycogan" / "strip.png").convert("RGB")
+
+pad = 16
+W = max(b.size[0], s.size[0]) + pad*2
+H = b.size[1] + s.size[1] + pad*3
+
+canvas = Image.new("RGB", (W, H), (255,255,255))
+canvas.paste(b, (pad, pad))
+canvas.paste(s, (pad, pad*2 + b.size[1]))
+
+out = outdir / "figure_baseline_vs_stycogan.png"
+out.parent.mkdir(parents=True, exist_ok=True)
+canvas.save(out)
+print(f"[OK] saved: {out}")
+PY
+fi
+
+echo "✅ Done."
+echo "Baseline strip : $BASE_OUT/strip.png"
+echo "StycoGAN strip : $STY_OUT/strip.png"
+if [[ "$MAKE_COMBINED" == "1" ]]; then
+  echo "Combined figure: $OUTDIR/figure_baseline_vs_stycogan.png"
+fi
